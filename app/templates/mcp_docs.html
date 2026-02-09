@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>MCP Tools Reference</h2>
+<p class="muted">A lightweight, Swagger-like reference for the MCP server. All tool calls use JSON-RPC over the single <code>/mcp</code> endpoint.</p>
+
+<section class="card">
+    <h3>JSON-RPC Basics</h3>
+    <pre class="summary">POST /mcp
+Initialize:
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": { "protocolVersion": "2025-06-18", "clientInfo": { "name": "ui", "version": "0.1" } }
+  }
+
+Tools list:
+  {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list",
+    "params": {}
+  }
+
+Tool call:
+  {
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": { "name": "cases.list", "arguments": {} }
+  }</pre>
+</section>
+
+<section class="card">
+    <h3>SSE Streaming</h3>
+    <pre class="summary">POST /mcp?stream=1
+Headers:
+  Accept: text/event-stream
+
+Notes:
+  For agent tools, the server streams partial results as SSE events.
+  Each event has JSON-RPC result data with:
+    { "partial": true, "delta": "..." }
+  The final event includes the full result with:
+    { "partial": false, "summary": "..." } or { "partial": false, "result": "..." }</pre>
+</section>
+
+<section class="card">
+    <h3>Cases</h3>
+    <pre class="summary">Tool: cases.create
+Purpose:
+  Create a new security case owned by the current user.
+Arguments:
+  title: string (required)
+  severity: low|medium|high (optional, default: low)
+Response:
+  { "ok": true }</pre>
+
+    <pre class="summary">Tool: cases.list
+Purpose:
+  List cases. If owner_id is provided, returns that user's cases (intentional BOLA risk).
+Arguments:
+  owner_id: optional int
+Response:
+  { "ok": true, "cases": [ ... ] }</pre>
+
+    <pre class="summary">Tool: cases.list_all
+Purpose:
+  List all cases across all users.
+Arguments:
+  (none)
+Response:
+  { "ok": true, "cases": [ ... ] }</pre>
+
+    <pre class="summary">Tool: cases.get
+Purpose:
+  Fetch a single case by id (ownership not enforced).
+Arguments:
+  case_id: int (required)
+Response:
+  { "ok": true, "case": { ... } }</pre>
+</section>
+
+<section class="card">
+    <h3>Notes</h3>
+    <pre class="summary">Tool: notes.create
+Purpose:
+  Add a note to a case (ownership not enforced).
+Arguments:
+  case_id: int (required)
+  content: string (required)
+Response:
+  { "ok": true }</pre>
+
+    <pre class="summary">Tool: notes.list
+Purpose:
+  List all notes for a case.
+Arguments:
+  case_id: int (required)
+Response:
+  { "ok": true, "notes": [ ... ] }</pre>
+
+    <pre class="summary">Tool: notes.update
+Purpose:
+  Update a note by id (ownership not enforced).
+Arguments:
+  note_id: int (required)
+  content: string (required)
+Response:
+  { "ok": true }</pre>
+
+    <pre class="summary">Tool: notes.delete
+Purpose:
+  Delete a note by id (ownership not enforced).
+Arguments:
+  note_id: int (required)
+Response:
+  { "ok": true }</pre>
+</section>
+
+<section class="card">
+    <h3>Files</h3>
+    <pre class="summary">Tool: files.upload
+Purpose:
+  Upload a file attachment for a case.
+Arguments:
+  case_id: int (required)
+  filename: string (required)
+  content_base64: string (required)
+Response:
+  { "ok": true, "filename": "..." }</pre>
+
+    <pre class="summary">Tool: files.list
+Purpose:
+  List file attachments for a case.
+Arguments:
+  case_id: int (required)
+Response:
+  { "ok": true, "files": [ ... ] }</pre>
+
+    <pre class="summary">Tool: files.get
+Purpose:
+  Download a file by id (ownership not enforced).
+Arguments:
+  file_id: int (required)
+Response:
+  { "ok": true, "filename": "...", "content_base64": "..." }</pre>
+
+    <pre class="summary">Tool: files.read_path
+Purpose:
+  Read a local artifact by filesystem path for investigation.
+Arguments:
+  path: string (required)
+Response:
+  { "ok": true, "path": "...", "content_base64": "..." }</pre>
+</section>
+
+<section class="card">
+    <h3>Indicators</h3>
+    <pre class="summary">Tool: indicators.search
+Purpose:
+  Search mock IOC dataset (intentionally vulnerable to SQL injection).
+Arguments:
+  q: string
+Response:
+  { "ok": true, "results": [ ... ] }</pre>
+</section>
+
+<section class="card">
+    <h3>Agent</h3>
+    <pre class="summary">Tool: agent.summarize_case
+Purpose:
+  Summarize a case from notes (prompt injection risk via notes).
+Arguments:
+  case_id: int (required)
+Response:
+  { "ok": true, "summary": "..." }</pre>
+
+    <pre class="summary">Tool: agent.run_task
+Purpose:
+  Run an analyst task over case data.
+Arguments:
+  case_id: int (required)
+  task: string (required)
+Response:
+  { "ok": true, "result": "...", "llm": true|false }</pre>
+</section>
+
+<section class="card">
+    <h3>Tool Registry</h3>
+    <pre class="summary">Tool: tools.registry.list
+Purpose:
+  List tools registered in the system.
+Arguments:
+  (none)
+Response:
+  { "ok": true, "tools": [ ... ] }</pre>
+
+    <pre class="summary">Tool: tools.builtin.list
+Purpose:
+  List built-in tools bundled with the server.
+Arguments:
+  (none)
+Response:
+  { "ok": true, "tools": [ ... ] }</pre>
+
+    <pre class="summary">Tool: tools.registry.register
+Purpose:
+  Register or update a tool definition via schema JSON.
+Arguments:
+  schema_json: string (required)
+Response:
+  { "ok": true }</pre>
+    <pre class="summary">Tool: tools.registry.delete
+Purpose:
+  Delete a registered tool by name.
+Arguments:
+  name: string (required)
+Response:
+  { "ok": true }</pre>
+    <pre class="summary">Schema example:
+{
+  "name": "cases.rename",
+  "description": "Rename a case by id",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "case_id": { "type": "integer" },
+      "title": { "type": "string" }
+    },
+    "required": ["case_id", "title"]
+  },
+  "handler": { "type": "builtin", "target": "cases.rename" }
+}</pre>
+</section>
+{% endblock %}

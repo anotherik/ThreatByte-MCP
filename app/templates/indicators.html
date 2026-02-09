@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Indicator Search</h2>
+<div class="card">
+    <label>Search indicators
+        <input type="text" id="indicator-query" placeholder="IP, domain, hash" />
+    </label>
+    <button class="btn" id="indicator-btn">Search</button>
+    <ul class="list" id="indicator-results"></ul>
+</div>
+
+<script>
+const btn = document.getElementById('indicator-btn');
+const queryInput = document.getElementById('indicator-query');
+const resultsEl = document.getElementById('indicator-results');
+
+const runSearch = async () => {
+    const q = queryInput.value || '';
+    resultsEl.innerHTML = '<li class="muted">Searching...</li>';
+    try {
+        const data = await mcpCall('indicators.search', { q });
+        resultsEl.innerHTML = '';
+        if (!data.results || data.results.length === 0) {
+            resultsEl.innerHTML = '<li class="muted">No results</li>';
+            return;
+        }
+        data.results.forEach((row) => {
+            const li = document.createElement('li');
+            li.textContent = `${row.indicator} (${row.indicator_type}) - ${row.description}`;
+            resultsEl.appendChild(li);
+        });
+    } catch (err) {
+        resultsEl.innerHTML = `<li class=\"muted\">${err.message || 'Error'}</li>`;
+    }
+};
+
+btn.addEventListener('click', runSearch);
+queryInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        runSearch();
+    }
+});
+</script>
+{% endblock %}

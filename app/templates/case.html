@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Case: {{ case.title }}</h2>
+<p class="muted">Severity: {{ case.severity }} | Created: {{ case.created_at }}</p>
+
+<section class="grid">
+    <div class="card">
+        <h3>Notes</h3>
+        <form id="note-create-form">
+            <input type="hidden" name="case_id" value="{{ case.id }}" />
+            <label>Add note
+                <textarea name="content" rows="4" required></textarea>
+            </label>
+            <button class="btn" type="submit">Add Note</button>
+        </form>
+
+        {% if notes %}
+        <ul class="list">
+            {% for note in notes %}
+            <li>
+                <div class="note-body">{{ note.content | safe }}</div>
+                <div class="note-actions">
+                    <input type="text" class="note-update-input" data-note-id="{{ note.id }}" placeholder="Update note" />
+                    <button class="btn small note-update-btn" data-note-id="{{ note.id }}" type="button">Update</button>
+                    <button class="btn small outline note-delete-btn" data-note-id="{{ note.id }}" type="button">Delete</button>
+                </div>
+                <div class="muted">{{ note.created_at }}</div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">No notes yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3>Files</h3>
+        <form id="file-upload-form" enctype="multipart/form-data">
+            <input type="hidden" name="case_id" value="{{ case.id }}" />
+            <label>Upload file
+                <input type="file" name="file" required />
+            </label>
+            <button class="btn" type="submit">Upload</button>
+        </form>
+
+        {% if files %}
+        <ul class="list">
+            {% for file in files %}
+            <li>
+                <span>{{ file.original_name }}</span>
+                <button class="btn small file-download-btn" type="button" data-file-id="{{ file.id }}" data-filename="{{ file.original_name }}">Download</button>
+                <span class="muted">{{ file.uploaded_at }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">No files uploaded.</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="card">
+    <h3>Agent Summary</h3>
+    <p class="muted">This uses the MCP summarize tool for the current case.</p>
+    <button class="btn" id="summary-btn">Generate Summary</button>
+    <pre class="summary" id="summary-output"></pre>
+</section>
+
+<section class="card">
+    <h3>Agent Task Runner</h3>
+    <p class="muted">Agent performs analyst tasks for the current case using MCP tools to read case details, notes, files, and indicators. It synthesizes a response based on the provided task and context.</p>
+    <label>Task
+        <input type="text" id="agent-task" placeholder="Summarize indicators and next steps" />
+    </label>
+    <button class="btn" id="task-btn">Run Task</button>
+    <pre class="summary" id="task-output"></pre>
+</section>
+
+<script>
+const summaryBtn = document.getElementById('summary-btn');
+const summaryOut = document.getElementById('summary-output');
+summaryBtn.addEventListener('click', async () => {
+    summaryOut.textContent = '';
+    try {
+        await mcpCallStream(
+            'agent.summarize_case',
+            { case_id: {{ case.id }} },
+            (delta) => { summaryOut.textContent += delta; },
+            (result) => { summaryOut.textContent = result.summary || summaryOut.textContent; }
+        );
+    } catch (err) {
+        summaryOut.textContent = err.message || 'Error';
+    }
+});
+
+const taskBtn = document.getElementById('task-btn');
+const taskOut = document.getElementById('task-output');
+const taskInput = document.getElementById('agent-task');
+taskBtn.addEventListener('click', async () => {
+    taskOut.textContent = '';
+    try {
+        await mcpCallStream(
+            'agent.run_task',
+            { case_id: {{ case.id }}, task: taskInput.value || '' },
+            (delta) => { taskOut.textContent += delta; },
+            (result) => { taskOut.textContent = result.result || taskOut.textContent; }
+        );
+    } catch (err) {
+        taskOut.textContent = err.message || 'Error';
+    }
+});
+
+const noteForm = document.getElementById('note-create-form');
+noteForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(noteForm);
+    try {
+        await mcpCall('notes.create', {
+            case_id: Number(formData.get('case_id')),
+            content: formData.get('content')
+        });
+        window.location.reload();
+    } catch (err) {
+        alert(err.message || 'Failed to add note');
+    }
+});
+
+document.querySelectorAll('.note-update-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+        const noteId = Number(btn.dataset.noteId);
+        const input = document.querySelector(`.note-update-input[data-note-id="${noteId}"]`);
+        try {
+            await mcpCall('notes.update', { note_id: noteId, content: input.value || '' });
+            window.location.reload();
+        } catch (err) {
+            alert(err.message || 'Failed to update note');
+        }
+    });
+});
+
+document.querySelectorAll('.note-delete-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+        const noteId = Number(btn.dataset.noteId);
+        try {
+            await mcpCall('notes.delete', { note_id: noteId });
+            window.location.reload();
+        } catch (err) {
+            alert(err.message || 'Failed to delete note');
+        }
+    });
+});
+
+const fileForm = document.getElementById('file-upload-form');
+fileForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(fileForm);
+    const file = formData.get('file');
+    if (!file || !file.name) {
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+        const buffer = reader.result;
+        if (!buffer) {
+            alert('File could not be read. Please try a different file.');
+            return;
+        }
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
+        const caseIdRaw = formData.get('case_id');
+        const caseId = parseInt(caseIdRaw, 10);
+        if (!caseId) {
+            alert('Missing case id. Please reload the page.');
+            return;
+        }
+        if (!base64) {
+            alert('File could not be read. Please try a different file.');
+            return;
+        }
+        try {
+            await mcpCall('files.upload', {
+                case_id: caseId,
+                filename: file.name,
+                content_base64: base64
+            });
+            window.location.reload();
+        } catch (err) {
+            alert(err.message || 'Failed to upload file');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+});
+
+document.querySelectorAll('.file-download-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+        const fileId = Number(btn.dataset.fileId);
+        try {
+            const data = await mcpCall('files.get', { file_id: fileId });
+            const byteChars = atob(data.content_base64 || '');
+            const bytes = new Uint8Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) {
+                bytes[i] = byteChars.charCodeAt(i);
+            }
+            const blob = new Blob([bytes]);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = btn.dataset.filename || 'download.bin';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            alert(err.message || 'Failed to download file');
+        }
+    });
+});
+</script>
+{% endblock %}

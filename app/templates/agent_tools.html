@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Agent Customization</h2>
+<p class="muted">Manage tools available to the agent. Tool definitions are stored server-side and exposed via MCP.</p>
+
+<section class="grid">
+    <div class="card">
+        <h3>Register Tool</h3>
+        <form id="tool-register-form">
+            <label>Tool Schema (JSON)
+                <textarea name="schema_json" rows="10" placeholder='{"name":"cases.rename","description":"Rename a case by id","inputSchema":{"type":"object","properties":{"case_id":{"type":"integer"},"title":{"type":"string"}},"required":["case_id","title"]},"handler":{"type":"builtin","target":"cases.rename"}}' required></textarea>
+            </label>
+            <label>Or Upload Schema (JSON file)
+                <input type="file" name="schema_file" accept="application/json,.json" />
+            </label>
+            <button class="btn" type="submit">Register Tool</button>
+        </form>
+    </div>
+    <div class="card">
+        <h3>Built-in Tools</h3>
+        <ul class="list" id="builtin-tool-list"></ul>
+    </div>
+    <div class="card">
+        <h3>Registered Tools</h3>
+        <ul class="list" id="tool-list"></ul>
+    </div>
+</section>
+
+<script>
+const toolList = document.getElementById('tool-list');
+const builtinList = document.getElementById('builtin-tool-list');
+const toolForm = document.getElementById('tool-register-form');
+
+async function refreshTools() {
+    toolList.innerHTML = '<li class="muted">Loading...</li>';
+    builtinList.innerHTML = '<li class="muted">Loading...</li>';
+    try {
+        const builtin = await mcpCall('tools.builtin.list', {});
+        const data = await mcpCall('tools.registry.list', {});
+        builtinList.innerHTML = '';
+        if (!builtin.tools || builtin.tools.length === 0) {
+            builtinList.innerHTML = '<li class="muted">No built-in tools found.</li>';
+        } else {
+            builtin.tools.forEach((tool) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${tool.name}</strong><div class="muted">${tool.description}</div>`;
+                builtinList.appendChild(li);
+            });
+        }
+        toolList.innerHTML = '';
+        if (!data.tools || data.tools.length === 0) {
+            toolList.innerHTML = '<li class="muted">No tools registered yet.</li>';
+            return;
+        }
+        data.tools.forEach((tool) => {
+            const li = document.createElement('li');
+            const schema = tool.schema || {};
+            const handler = (schema.handler && schema.handler.target) ? `Handler: ${schema.handler.type} → ${schema.handler.target}` : 'Handler: unknown';
+            li.innerHTML = `<strong>${tool.name}</strong><div class="muted">${tool.description}</div><div class="muted">${handler}</div>`;
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-ghost btn-mini';
+            btn.textContent = 'Remove';
+            btn.addEventListener('click', async () => {
+                if (!confirm(`Remove tool ${tool.name}?`)) {
+                    return;
+                }
+                try {
+                    await mcpCall('tools.registry.delete', { name: tool.name });
+                    await refreshTools();
+                } catch (err) {
+                    alert(err.message || 'Failed to remove tool');
+                }
+            });
+            li.appendChild(btn);
+            toolList.appendChild(li);
+        });
+    } catch (err) {
+        toolList.innerHTML = `<li class="muted">${err.message || 'Error'}</li>`;
+    }
+}
+
+toolForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(toolForm);
+    const file = formData.get('schema_file');
+    let schemaText = formData.get('schema_json');
+    if (file && file.size) {
+        schemaText = await file.text();
+    }
+    let schema = null;
+    try {
+        schema = JSON.parse(schemaText);
+    } catch (err) {
+        alert('Schema JSON is invalid.');
+        return;
+    }
+    try {
+        await mcpCall('tools.registry.register', { schema_json: JSON.stringify(schema) });
+        toolForm.reset();
+        await refreshTools();
+    } catch (err) {
+        alert(err.message || 'Failed to register tool');
+    }
+});
+
+window.addEventListener('load', () => {
+    refreshTools();
+});
+</script>
+{% endblock %}

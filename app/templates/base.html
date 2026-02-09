@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title or "ThreatByte-MCP" }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">ThreatByte-MCP</div>
+        <nav class="nav">
+            {% if user %}
+            <a href="{{ url_for('ui.dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('ui.indicators') }}">Indicators</a>
+            <a href="{{ url_for('ui.mcp_docs') }}">MCP Docs</a>
+            <a href="{{ url_for('ui.agent_logs') }}">Agent Logs</a>
+            <a href="{{ url_for('ui.agent_tools') }}">Agent Customization</a>
+            <a href="{{ url_for('ui.profile') }}">Profile</a>
+            <a href="{{ url_for('ui.logout') }}">Logout</a>
+            {% else %}
+            <a href="{{ url_for('ui.login') }}">Login</a>
+            <a href="{{ url_for('ui.signup') }}">Sign Up</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main class="container">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash">
+                    {% for message in messages %}
+                        <div class="flash-item">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+    <script>
+    const mcpInitPromise = (async () => {
+        const initPayload = {
+            jsonrpc: "2.0",
+            id: 1,
+            method: "initialize",
+            params: {
+                protocolVersion: "2025-06-18",
+                clientInfo: { name: "ThreatByte-MCP-UI", version: "0.1" },
+                capabilities: {}
+            }
+        };
+        await fetch("/mcp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(initPayload)
+        });
+        await fetch("/mcp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: {} })
+        });
+    })();
+
+    async function mcpCall(toolName, args) {
+        await mcpInitPromise;
+        const payload = {
+            jsonrpc: "2.0",
+            id: Date.now(),
+            method: "tools/call",
+            params: { name: toolName, arguments: args || {} }
+        };
+        const res = await fetch("/mcp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.error) {
+            throw new Error(data.error.message || "MCP error");
+        }
+        return data.result;
+    }
+
+    async function mcpCallStream(toolName, args, onDelta, onDone) {
+        await mcpInitPromise;
+        const payload = {
+            jsonrpc: "2.0",
+            id: Date.now(),
+            method: "tools/call",
+            params: { name: toolName, arguments: args || {} }
+        };
+        const res = await fetch("/mcp?stream=1", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+            body: JSON.stringify(payload)
+        });
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            let idx;
+            while ((idx = buffer.indexOf("\n\n")) !== -1) {
+                const chunk = buffer.slice(0, idx);
+                buffer = buffer.slice(idx + 2);
+                const lines = chunk.split("\n");
+                for (const line of lines) {
+                    if (line.startsWith("data: ")) {
+                        try {
+                            const msg = JSON.parse(line.slice(6));
+                            if (msg.result && msg.result.partial) {
+                                onDelta && onDelta(msg.result.delta || "");
+                            } else if (msg.result && msg.result.partial === false) {
+                                onDone && onDone(msg.result);
+                            } else if (msg.error) {
+                                throw new Error(msg.error.message || "MCP error");
+                            }
+                        } catch (err) {
+                            throw err;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    </script>
+</body>
+</html>

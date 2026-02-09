@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Profile</h2>
+<div class="card">
+    <p><strong>Username:</strong> {{ user.username }}</p>
+    <form method="post" action="{{ url_for('ui.profile_update') }}">
+        <label>Email
+            <input type="email" name="email" value="{{ user.email }}" required />
+        </label>
+        <button class="btn" type="submit">Update</button>
+    </form>
+</div>
+{% endblock %}

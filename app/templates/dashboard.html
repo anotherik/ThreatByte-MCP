@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Welcome, {{ user.username }}</h2>
+
+<section class="grid">
+    <div class="card" id="case-volume">
+        <h3>Case Volume (Last 5 Days)</h3>
+        {% set max_vol = (volume_counts|max) if volume_counts else 0 %}
+        <div class="chart">
+            {% for point in volume_series %}
+            {% set height = (point.count / max_vol * 100) if max_vol else 10 %}
+            <a class="chart-bar" href="#your-cases" style="height: {{ height }}%">
+                <span class="chart-count">{{ point.count }}</span>
+                <span class="chart-label">{{ point.label }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        <p class="muted chart-note">Daily case intake for the last 5 days.</p>
+    </div>
+    <div class="card" id="severity-breakdown">
+        <h3>Severity Breakdown</h3>
+        {% set total = total_cases if total_cases else 1 %}
+        {% set high_pct = (high_count / total * 100) %}
+        {% set med_pct = (medium_count / total * 100) %}
+        {% set low_pct = (low_count / total * 100) %}
+        <div class="donut" style="--high: {{ high_pct }}%; --medium: {{ med_pct }}%; --low: {{ low_pct }}%;">
+            <div class="donut-center">
+                <div class="donut-label">All Cases</div>
+                <div class="donut-value">{{ total_cases }}</div>
+            </div>
+        </div>
+        <div class="legend">
+            <a class="legend-item" href="#your-cases"><span class="dot high"></span>High ({{ high_count }})</a>
+            <a class="legend-item" href="#your-cases"><span class="dot medium"></span>Medium ({{ medium_count }})</a>
+            <a class="legend-item" href="#your-cases"><span class="dot low"></span>Low ({{ low_count }})</a>
+        </div>
+    </div>
+    <div class="card" id="recent-alerts">
+        <h3>Recent Alerts</h3>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Alert</th>
+                    <th>Severity</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if recent_alerts %}
+                {% for alert in recent_alerts %}
+                <tr>
+                    <td><a class="table-link" href="{{ url_for('ui.case_view', case_id=alert.id) }}">{{ alert.title }}</a></td>
+                    <td><span class="pill">{{ alert.severity }}</span></td>
+                    <td><a class="table-link" href="{{ url_for('ui.case_view', case_id=alert.id) }}">{{ alert.created_at }}</a></td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="3" class="muted">No alerts yet.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="grid">
+    <div class="card">
+        <h3>Create Case</h3>
+        <form id="case-create-form">
+            <label>Title
+                <input type="text" name="title" required />
+            </label>
+            <label>Severity
+                <select name="severity">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                </select>
+            </label>
+            <button class="btn" type="submit">Create</button>
+        </form>
+    </div>
+
+    <div class="card" id="your-cases">
+        <h3>Your Cases</h3>
+        {% if cases %}
+        <ul class="list">
+            {% for case in cases %}
+            <li>
+                <a href="{{ url_for('ui.case_view', case_id=case.id) }}">{{ case.title }}</a>
+                <span class="pill">{{ case.severity }}</span>
+                <span class="muted">{{ case.created_at }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">No cases yet. Create one to get started.</p>
+        {% endif %}
+    </div>
+</section>
+<script>
+const caseForm = document.getElementById('case-create-form');
+caseForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(caseForm);
+    try {
+        await mcpCall('cases.create', {
+            title: formData.get('title'),
+            severity: formData.get('severity')
+        });
+        window.location.reload();
+    } catch (err) {
+        alert(err.message || 'Failed to create case');
+    }
+});
+</script>
+{% endblock %}

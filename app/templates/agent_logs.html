@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Agent Logs (Training)</h2>
+<p class="muted">Shows persisted prompts and full request/response logs for MCP tasks.</p>
+
+<section class="card">
+    <h3>Agent Request/Response Logs</h3>
+    {% if logs %}
+    <ul class="list">
+        {% for log in logs %}
+        <li>
+            <div><strong>Log #{{ log.id }}</strong> — Case {{ log.case_id }}</div>
+            <div class="muted">Request</div>
+            <pre class="summary">{{ log.request_json }}</pre>
+            <div class="muted">Response</div>
+            <pre class="summary">{{ log.response_json }}</pre>
+            <div class="muted">{{ log.created_at }}</div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">No logs yet. Run an agent task first.</p>
+    {% endif %}
+</section>
+{% endblock %}
