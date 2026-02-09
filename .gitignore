@@ -205,3 +205,17 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+*.pyc
+*.pyo
+*.pyd
+*.sqlite
+*.db
+db/*.db
+db/*.sqlite
+db/threatbyte_mcp.db
+venv_threatbyte_mcp/
+.venv/
+.env.*
+app/uploads/
+.DS_Store
