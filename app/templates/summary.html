@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Case Summary</h2>
+<div class="card">
+    <p class="muted">Case ID: {{ case_id }}</p>
+    <button class="btn" id="summary-btn">Generate Summary</button>
+    <pre class="summary" id="summary-output"></pre>
+</div>
+
+<script>
+const btn = document.getElementById('summary-btn');
+const out = document.getElementById('summary-output');
+btn.addEventListener('click', async () => {
+    out.textContent = '';
+    try {
+        await mcpCallStream(
+            'agent.summarize_case',
+            { case_id: {{ case_id }} },
+            (delta) => { out.textContent += delta; },
+            (result) => { out.textContent = result.summary || out.textContent; }
+        );
+    } catch (err) {
+        out.textContent = err.message || 'Error';
+    }
+});
+</script>
+{% endblock %}
