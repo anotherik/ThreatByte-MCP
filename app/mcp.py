@@ -97,9 +97,23 @@ def _rpc_result(result, rpc_id):
 
 def _require_user(rpc_id):
     user = get_current_user()
-    if not user:
+    if user:
+        return user, None
+    token = request.headers.get("X-TBMCP-Token", "")
+    expected = current_app.config.get("MCP_SERVER_TOKEN", "")
+    if not expected or token != expected:
         return None, _rpc_error(-32000, "Unauthorized", rpc_id)
-    return user, None
+    user_id = request.headers.get("X-TBMCP-User", "")
+    if not user_id:
+        return None, _rpc_error(-32000, "User context required", rpc_id)
+    db = get_db()
+    row = db.execute(
+        "SELECT id, username, email FROM users WHERE id = ?",
+        (user_id,),
+    ).fetchone()
+    if not row:
+        return None, _rpc_error(-32000, "User not found", rpc_id)
+    return row, None
 
 
 def _log_agent_run(db, case_id, request_data, response_data, prompt):
@@ -331,11 +345,12 @@ def _execute_tool_by_name(db, user, name, args):
 def _tool_cases_create(db, user, args):
     title = (args.get("title") or "").strip()
     severity = (args.get("severity") or "low").strip()
+    status = (args.get("status") or "open").strip()
     if not title:
         return {"error": "title is required"}
     db.execute(
-        "INSERT INTO cases (title, severity, owner_id) VALUES (?, ?, ?)",
-        (title, severity, user["id"]),
+        "INSERT INTO cases (title, severity, status, owner_id) VALUES (?, ?, ?, ?)",
+        (title, severity, status, user["id"]),
     )
     db.commit()
     return {"ok": True}
@@ -346,12 +361,12 @@ def _tool_cases_list(db, user, args):
     if owner_id:
         # Intentionally trusts the provided owner_id (BOLA demo)
         rows = db.execute(
-            "SELECT id, title, severity, owner_id, created_at FROM cases WHERE owner_id = ? ORDER BY created_at DESC",
+            "SELECT id, title, severity, status, owner_id, created_at FROM cases WHERE owner_id = ? ORDER BY created_at DESC",
             (owner_id,),
         ).fetchall()
     else:
         rows = db.execute(
-            "SELECT id, title, severity, owner_id, created_at FROM cases WHERE owner_id = ? ORDER BY created_at DESC",
+            "SELECT id, title, severity, status, owner_id, created_at FROM cases WHERE owner_id = ? ORDER BY created_at DESC",
             (user["id"],),
         ).fetchall()
     return {"ok": True, "cases": [dict(row) for row in rows]}
@@ -367,12 +382,31 @@ def _tool_cases_rename(db, _user, args):
     return {"ok": True, "output": f"Case {case_id} renamed to '{new_title}'."}
 
 
+def _tool_cases_set_status(db, _user, args):
+    case_id = args.get("case_id")
+    status = (args.get("status") or "").strip()
+    if not case_id or not status:
+        return {"error": "case_id and status are required"}
+    db.execute("UPDATE cases SET status = ? WHERE id = ?", (status, case_id))
+    db.commit()
+    return {"ok": True, "output": f"Case {case_id} status set to '{status}'."}
+
+
+def _tool_cases_delete(db, _user, args):
+    case_id = args.get("case_id")
+    if not case_id:
+        return {"error": "case_id is required"}
+    db.execute("DELETE FROM cases WHERE id = ?", (case_id,))
+    db.commit()
+    return {"ok": True, "output": f"Case {case_id} deleted."}
+
+
 def _tool_cases_get(db, _user, args):
     case_id = args.get("case_id")
     if not case_id:
         return {"error": "case_id is required"}
     case = db.execute(
-        "SELECT id, title, severity, owner_id, created_at FROM cases WHERE id = ?",
+        "SELECT id, title, severity, status, owner_id, created_at FROM cases WHERE id = ?",
         (case_id,),
     ).fetchone()
     if not case:
@@ -382,7 +416,7 @@ def _tool_cases_get(db, _user, args):
 
 def _tool_cases_list_all(db, _user, _args):
     rows = db.execute(
-        "SELECT id, title, severity, owner_id, created_at FROM cases ORDER BY created_at DESC"
+        "SELECT id, title, severity, status, owner_id, created_at FROM cases ORDER BY created_at DESC"
     ).fetchall()
     return {"ok": True, "cases": [dict(row) for row in rows]}
 
@@ -593,6 +627,7 @@ def _base_tools_catalog():
                 "properties": {
                     "title": {"type": "string"},
                     "severity": {"type": "string"},
+                    "status": {"type": "string"},
                 },
                 "required": ["title"],
             },
@@ -629,6 +664,24 @@ def _base_tools_catalog():
                 "type": "object",
                 "properties": {"case_id": {"type": "integer"}, "title": {"type": "string"}},
                 "required": ["case_id", "title"],
+            },
+        },
+        {
+            "name": "cases.set_status",
+            "description": "Set case status (open | resolved | closed).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"case_id": {"type": "integer"}, "status": {"type": "string"}},
+                "required": ["case_id", "status"],
+            },
+        },
+        {
+            "name": "cases.delete",
+            "description": "Delete a case by id.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"case_id": {"type": "integer"}},
+                "required": ["case_id"],
             },
         },
         {
@@ -802,6 +855,8 @@ _TOOL_HANDLERS = {
     "cases.get": _tool_cases_get,
     "cases.list_all": _tool_cases_list_all,
     "cases.rename": _tool_cases_rename,
+    "cases.set_status": _tool_cases_set_status,
+    "cases.delete": _tool_cases_delete,
     "notes.create": _tool_notes_create,
     "notes.list": _tool_notes_list,
     "notes.update": _tool_notes_update,

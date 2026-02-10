@@ -8,3 +8,5 @@ class Config:
     DATABASE = os.path.join(PROJECT_ROOT, "db", "threatbyte_mcp.db")
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+    MCP_SERVER_URL = os.environ.get("TBMCP_MCP_SERVER_URL", "http://localhost:5002/mcp")
+    MCP_SERVER_TOKEN = os.environ.get("TBMCP_MCP_SERVER_TOKEN", "tbmcp-mcp-token")

@@ -1,7 +1,8 @@
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, current_app, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from datetime import datetime, timedelta
+import httpx
 
 from .db import get_db
 from .auth import login_required, get_current_user
@@ -78,7 +79,7 @@ def dashboard():
     db = get_db()
     user = get_current_user()
     cases = db.execute(
-        "SELECT id, title, severity, created_at FROM cases WHERE owner_id = ? ORDER BY created_at DESC",
+        "SELECT id, title, severity, status, created_at FROM cases WHERE owner_id = ? ORDER BY created_at DESC",
         (user["id"],),
     ).fetchall()
     severity_rows = db.execute(
@@ -106,7 +107,7 @@ def dashboard():
     ]
 
     recent_alerts = db.execute(
-        "SELECT id, title, severity, created_at FROM cases ORDER BY created_at DESC LIMIT 5"
+        "SELECT id, title, severity, status, created_at FROM cases ORDER BY created_at DESC LIMIT 5"
     ).fetchall()
 
     return render_template(
@@ -130,11 +131,14 @@ def case_view(case_id):
     db = get_db()
     user = get_current_user()
     case = db.execute(
-        "SELECT id, title, severity, owner_id, created_at FROM cases WHERE id = ? AND owner_id = ?",
-        (case_id, user["id"]),
+        "SELECT id, title, severity, status, owner_id, created_at FROM cases WHERE id = ?",
+        (case_id,),
     ).fetchone()
     if not case:
         flash("Case not found")
+        return redirect(url_for("ui.dashboard"))
+    if case["owner_id"] != user["id"]:
+        flash("You do not have permission to view this case.")
         return redirect(url_for("ui.dashboard"))
 
     notes = db.execute(
@@ -206,3 +210,29 @@ def mcp_docs():
 def agent_tools():
     user = get_current_user()
     return render_template("agent_tools.html", user=user)
+
+
+@ui_bp.route("/mcp-proxy", methods=["POST"])
+@login_required
+def mcp_proxy():
+    user = get_current_user()
+    target = current_app.config["MCP_SERVER_URL"]
+    payload = request.get_data()
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": request.headers.get("Accept", "application/json"),
+        "X-TBMCP-Token": current_app.config["MCP_SERVER_TOKEN"],
+        "X-TBMCP-User": str(user["id"]),
+    }
+    wants_stream = request.args.get("stream") in {"1", "true", "yes"} or "text/event-stream" in headers["Accept"]
+
+    if wants_stream:
+        def stream():
+            with httpx.stream("POST", target, headers=headers, content=payload, timeout=None) as resp:
+                for chunk in resp.iter_raw():
+                    yield chunk
+
+        return Response(stream(), mimetype="text/event-stream")
+
+    resp = httpx.post(target, headers=headers, content=payload, timeout=20.0)
+    return Response(resp.content, status=resp.status_code, content_type=resp.headers.get("content-type", "application/json"))
