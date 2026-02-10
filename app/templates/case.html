@@ -1,7 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Case: {{ case.title }}</h2>
-<p class="muted">Severity: {{ case.severity }} | Created: {{ case.created_at }}</p>
+<p class="muted">Severity: {{ case.severity }} | Status: {{ case.status or 'open' }} | Created: {{ case.created_at }}</p>
+
+<section class="card">
+    <h3>Case Actions</h3>
+    <div class="note-actions">
+        <button class="btn small" id="resolve-btn" type="button">Resolve</button>
+        <button class="btn small outline" id="close-btn" type="button">Close</button>
+        <button class="btn small outline" id="delete-btn" type="button">Delete</button>
+    </div>
+</section>
 
 <section class="grid">
     <div class="card">
@@ -218,6 +227,40 @@ document.querySelectorAll('.file-download-btn').forEach((btn) => {
             alert(err.message || 'Failed to download file');
         }
     });
+});
+
+const resolveBtn = document.getElementById('resolve-btn');
+const closeBtn = document.getElementById('close-btn');
+const deleteBtn = document.getElementById('delete-btn');
+
+resolveBtn.addEventListener('click', async () => {
+    try {
+        await mcpCall('cases.set_status', { case_id: {{ case.id }}, status: 'resolved' });
+        window.location.reload();
+    } catch (err) {
+        alert(err.message || 'Failed to update case');
+    }
+});
+
+closeBtn.addEventListener('click', async () => {
+    try {
+        await mcpCall('cases.set_status', { case_id: {{ case.id }}, status: 'closed' });
+        window.location.reload();
+    } catch (err) {
+        alert(err.message || 'Failed to update case');
+    }
+});
+
+deleteBtn.addEventListener('click', async () => {
+    if (!confirm('Delete this case? This cannot be undone.')) {
+        return;
+    }
+    try {
+        await mcpCall('cases.delete', { case_id: {{ case.id }} });
+        window.location.href = "{{ url_for('ui.dashboard') }}";
+    } catch (err) {
+        alert(err.message || 'Failed to delete case');
+    }
 });
 </script>
 {% endblock %}

@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>MCP Tools Reference</h2>
-<p class="muted">A lightweight, Swagger-like reference for the MCP server. All tool calls use JSON-RPC over the single <code>/mcp</code> endpoint.</p>
+<p class="muted">A lightweight, Swagger-like reference for the MCP server. The MCP server listens on <code>http://localhost:5002/mcp</code>. The SOC UI calls it through <code>/mcp-proxy</code>.</p>
 
 <section class="card">
     <h3>JSON-RPC Basics</h3>
-    <pre class="summary">POST /mcp
+    <pre class="summary">POST http://localhost:5002/mcp
+Headers:
+  X-TBMCP-Token: tbmcp-mcp-token
+  X-TBMCP-User: &lt;user id&gt;
 Initialize:
   {
     "jsonrpc": "2.0",
@@ -33,7 +36,7 @@ Tool call:
 
 <section class="card">
     <h3>SSE Streaming</h3>
-    <pre class="summary">POST /mcp?stream=1
+    <pre class="summary">POST http://localhost:5002/mcp?stream=1
 Headers:
   Accept: text/event-stream
 
@@ -79,6 +82,32 @@ Arguments:
   case_id: int (required)
 Response:
   { "ok": true, "case": { ... } }</pre>
+
+    <pre class="summary">Tool: cases.rename
+Purpose:
+  Rename a case by id.
+Arguments:
+  case_id: int (required)
+  title: string (required)
+Response:
+  { "ok": true }</pre>
+
+    <pre class="summary">Tool: cases.set_status
+Purpose:
+  Set a case status (open | resolved | closed).
+Arguments:
+  case_id: int (required)
+  status: string (required)
+Response:
+  { "ok": true }</pre>
+
+    <pre class="summary">Tool: cases.delete
+Purpose:
+  Delete a case by id.
+Arguments:
+  case_id: int (required)
+Response:
+  { "ok": true }</pre>
 </section>
 
 <section class="card">

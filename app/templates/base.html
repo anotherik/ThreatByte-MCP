@@ -50,12 +50,12 @@
                 capabilities: {}
             }
         };
-        await fetch("/mcp", {
+        await fetch("/mcp-proxy", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(initPayload)
         });
-        await fetch("/mcp", {
+        await fetch("/mcp-proxy", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: {} })
@@ -70,7 +70,7 @@
             method: "tools/call",
             params: { name: toolName, arguments: args || {} }
         };
-        const res = await fetch("/mcp", {
+        const res = await fetch("/mcp-proxy", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -90,7 +90,7 @@
             method: "tools/call",
             params: { name: toolName, arguments: args || {} }
         };
-        const res = await fetch("/mcp?stream=1", {
+        const res = await fetch("/mcp-proxy?stream=1", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
             body: JSON.stringify(payload)

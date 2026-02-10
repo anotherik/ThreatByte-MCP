@@ -2,6 +2,7 @@
 {% block content %}
 <h2>Profile</h2>
 <div class="card">
+    <p><strong>User ID:</strong> {{ user.id }}</p>
     <p><strong>Username:</strong> {{ user.username }}</p>
     <form method="post" action="{{ url_for('ui.profile_update') }}">
         <label>Email
