@@ -23,6 +23,7 @@ def main():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             severity TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
             owner_id INTEGER NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
@@ -85,6 +86,7 @@ def main():
 
     ensure_column("mcp_tools", "tool_type", "TEXT")
     ensure_column("mcp_tools", "config_json", "TEXT")
+    ensure_column("cases", "status", "TEXT DEFAULT 'open'")
 
     cur.execute("SELECT COUNT(*) FROM indicators")
     count = cur.fetchone()[0]
