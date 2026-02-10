@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ThreatByte-MCP": {
+      "transport": "streamable-http",
+      "url": "http://localhost:5002/mcp"
+    }
+  }
+}
