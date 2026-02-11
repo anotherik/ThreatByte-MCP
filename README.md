@@ -8,6 +8,8 @@ ThreatByte-MCP is a deliberately vulnerable, MCP-based case management web app. 
 
 > For educational use in controlled environments only.
 
+<center><img width="1891" height="891" alt="image" src="https://github.com/user-attachments/assets/d86037a3-67f7-4ece-a244-676b32ff7764" /></center>
+
 ## Features
 - Safe web authentication (signup/login/logout)
 - Case management UI (create/list/view cases)
