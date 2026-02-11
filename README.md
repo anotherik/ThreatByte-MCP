@@ -126,6 +126,61 @@ Open: `http://localhost:5001`
 
 MCP Server: `http://localhost:5002/mcp`
 
+## Running with Docker or Podman
+The repository includes a `Dockerfile` and startup script that initialize the DB and run both services in one container:
+- SOC Web App on `:5001`
+- MCP Server on `:5002`
+
+Build the image:
+```sh
+# Docker
+docker build -t threatbyte-mcp .
+
+# Podman
+podman build -t threatbyte-mcp .
+```
+
+Run the container:
+```sh
+# Docker
+docker run --rm -p 5001:5001 -p 5002:5002 threatbyte-mcp
+
+# Podman
+podman run --rm -p 5001:5001 -p 5002:5002 threatbyte-mcp
+```
+
+Run with optional environment variables:
+```sh
+# Docker
+docker run --rm -p 5001:5001 -p 5002:5002 \
+  -e TBMCP_MCP_SERVER_TOKEN=tbmcp-mcp-token \
+  -e OPENAI_API_KEY=your_api_key \
+  -e TBMCP_OPENAI_MODEL=gpt-4o-mini \
+  threatbyte-mcp
+
+# Podman
+podman run --rm -p 5001:5001 -p 5002:5002 \
+  -e TBMCP_MCP_SERVER_TOKEN=tbmcp-mcp-token \
+  -e OPENAI_API_KEY=your_api_key \
+  -e TBMCP_OPENAI_MODEL=gpt-4o-mini \
+  threatbyte-mcp
+```
+
+Persist SQLite data between runs (optional):
+```sh
+# Docker
+docker run --rm -p 5001:5001 -p 5002:5002 \
+  -v "$(pwd)/db:/app/db" \
+  -v "$(pwd)/app/uploads:/app/app/uploads" \
+  threatbyte-mcp
+
+# Podman
+podman run --rm -p 5001:5001 -p 5002:5002 \
+  -v "$(pwd)/db:/app/db:Z" \
+  -v "$(pwd)/app/uploads:/app/app/uploads:Z" \
+  threatbyte-mcp
+```
+
 ## Populate Sample Data
 ```sh
 python db/populate_db.py --users 8 --cases 20 --notes 40 --files 20
