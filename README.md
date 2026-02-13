@@ -128,7 +128,7 @@ python -m venv venv_threatbyte_mcp
 source venv_threatbyte_mcp/bin/activate
 pip install -r requirements.txt
 python db/create_db_tables.py
-python run_mcp_server.py
+python run_http_server.py
 python run.py
 ```
 Open: `http://localhost:5001`
