@@ -3,10 +3,10 @@ set -euo pipefail
 
 python db/create_db_tables.py
 
-flask --app run_mcp_server.py run --host 0.0.0.0 --port 5002 --no-debugger --no-reload &
+uvicorn run_mcp_server:app --host 0.0.0.0 --port 5002 &
 MCP_PID=$!
 
-flask --app run.py run --host 0.0.0.0 --port 5001 --no-debugger --no-reload &
+flask --app run.py run --host 0.0.0.0 --port 5001 --no-reload &
 WEB_PID=$!
 
 shutdown() {

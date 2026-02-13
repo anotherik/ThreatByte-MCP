@@ -1,14 +1,8 @@
 # ThreatByte-MCP
 
-[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.12%2B-blue)](https://www.python.org/)
-[![GitHub stars](https://img.shields.io/github/stars/anotherik/ThreatByte-MCP.svg)](https://github.com/anotherik/ThreatByte-MCP/stargazers)
-
 ThreatByte-MCP is a deliberately vulnerable, MCP-based case management web app. It mirrors a realistic SOC analyst workflow with a server-rendered UI and a real MCP server. The **MCP tools are intentionally vulnerable** for training and demonstration.
 
 > For educational use in controlled environments only.
-
-<center><img width="1891" height="891" alt="image" src="https://github.com/user-attachments/assets/d86037a3-67f7-4ece-a244-676b32ff7764" /></center>
 
 ## Features
 - Safe web authentication (signup/login/logout)
@@ -17,21 +11,22 @@ ThreatByte-MCP is a deliberately vulnerable, MCP-based case management web app. 
 - Indicator search and agent workflows via MCP tools
 - Agent customization with schema-based tool registry
 
-## MCP Server (JSON-RPC)
+## MCP Server (SDK, JSON-RPC)
 ThreatByte-MCP is a split architecture:
 - SOC Web App (client/UI) runs on port 5001.
-- MCP Server (tools + agent) runs on port 5002.
+- MCP Server (tools + agent) runs on port 5002 using the official MCP Python SDK (FastMCP).
 
-The MCP server exposes JSON-RPC at `POST http://localhost:5002/mcp` (Streamable HTTP). Optional SSE is supported for streaming agent responses. The web UI calls the MCP server through a server-side proxy to keep auth consistent with the SOC session. A sample `mcp.json` manifest is included at the repo root.
+The MCP server exposes JSON-RPC at `POST http://localhost:5002/mcp` (Streamable HTTP). The web UI calls the MCP server through a server-side proxy to keep auth consistent with the SOC session; the proxy streams agent responses to the browser via SSE. A sample `mcp.json` manifest is included at the repo root.
+All direct MCP calls must include `MCP-Protocol-Version: 2025-11-25` and `Accept: application/json, text/event-stream`.
 
-**Architecture (simplified):**
+Architecture (simplified):
 ```
           Browser
              |
              v
     +------------------+        X-TBMCP-Token + X-TBMCP-User        +-------------------+
     |  SOC Web App     |  ---------------------------------------> |     MCP Server     |
-    |  (Flask, :5001)  |           /mcp-proxy (server-side)         |   (Flask, :5002)   |
+    |  (Flask, :5001)  |           /mcp-proxy (server-side)         |  (FastMCP, :5002)  |
     +------------------+                                            +-------------------+
              |                                                                  |
              v                                                                  v
@@ -39,7 +34,7 @@ The MCP server exposes JSON-RPC at `POST http://localhost:5002/mcp` (Streamable 
                                                                        Agent + tool handlers
 ```
 
-**Architecture (detailed):**
+Architecture (detailed):
 ```
 Browser (Analyst)
   |
@@ -55,8 +50,8 @@ SOC Web App (Flask, :5001)
   +--> Uploads (app/uploads)
   |
   v
-MCP Server (Flask, :5002)
-  |  - /mcp JSON-RPC (Streamable HTTP + SSE)
+MCP Server (FastMCP, :5002)
+  |  - /mcp JSON-RPC (Streamable HTTP)
   |  - X-TBMCP-Token + X-TBMCP-User headers
   |
   +--> Tool registry (mcp_tools)
