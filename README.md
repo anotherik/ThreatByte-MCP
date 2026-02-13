@@ -1,8 +1,18 @@
 # ThreatByte-MCP
 
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-blue)](https://www.python.org/)
+[![GitHub stars](https://img.shields.io/github/stars/anotherik/ThreatByte-MCP.svg)](https://github.com/anotherik/ThreatByte-MCP/stargazers)
+
+<a href="https://glama.ai/mcp/servers/@anotherik/ThreatByte-MCP">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@anotherik/ThreatByte-MCP/badge" />
+</a>
+
 ThreatByte-MCP is a deliberately vulnerable, MCP-based case management web app. It mirrors a realistic SOC analyst workflow with a server-rendered UI and a real MCP server. The **MCP tools are intentionally vulnerable** for training and demonstration.
 
 > For educational use in controlled environments only.
+
+<center><img width="1891" height="891" alt="image" src="https://github.com/user-attachments/assets/d86037a3-67f7-4ece-a244-676b32ff7764" /></center>
 
 ## Features
 - Safe web authentication (signup/login/logout)
