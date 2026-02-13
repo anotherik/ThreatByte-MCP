@@ -3,11 +3,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from datetime import datetime, timedelta
 import httpx
+import json
 
 from .db import get_db
 from .auth import login_required, get_current_user
 
 ui_bp = Blueprint("ui", __name__)
+MCP_PROTOCOL_VERSION = "2025-11-25"
 
 
 @ui_bp.route("/")
@@ -218,21 +220,140 @@ def mcp_proxy():
     user = get_current_user()
     target = current_app.config["MCP_SERVER_URL"]
     payload = request.get_data()
+    wants_stream = request.args.get("stream") in {"1", "true", "yes"} or "text/event-stream" in request.headers.get("Accept", "")
+    accept = "application/json, text/event-stream"
     headers = {
         "Content-Type": "application/json",
-        "Accept": request.headers.get("Accept", "application/json"),
+        "Accept": accept,
+        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
         "X-TBMCP-Token": current_app.config["MCP_SERVER_TOKEN"],
         "X-TBMCP-User": str(user["id"]),
     }
-    wants_stream = request.args.get("stream") in {"1", "true", "yes"} or "text/event-stream" in headers["Accept"]
+
+    def _extract_sse_json_from_bytes(raw):
+        if not raw:
+            return None
+        last = None
+        if isinstance(raw, str):
+            raw = raw.encode("utf-8", errors="ignore")
+        for line in raw.splitlines():
+            if not line.startswith(b"data: "):
+                continue
+            chunk = line[6:].strip()
+            if not chunk:
+                continue
+            try:
+                last = json.loads(chunk.decode("utf-8", errors="ignore"))
+            except Exception:
+                continue
+        return last
+
+    def _normalize_tool_result(data):
+        if not isinstance(data, dict):
+            return data
+        result = data.get("result")
+        if not isinstance(result, dict):
+            return data
+        if result.get("isError") is True and isinstance(result.get("content"), list):
+            first = result["content"][0] if result["content"] else {}
+            if isinstance(first, dict) and first.get("type") == "text":
+                message = first.get("text", "MCP tool error")
+                data.pop("result", None)
+                data["error"] = {"code": -32001, "message": message}
+                return data
+        content = result.get("content")
+        if not isinstance(content, list) or not content:
+            return data
+        first = content[0]
+        if isinstance(first, dict) and first.get("type") == "text":
+            text = first.get("text", "")
+            try:
+                parsed = json.loads(text)
+                data["result"] = parsed
+            except Exception:
+                data["result"] = {"ok": True, "output": text}
+        return data
 
     if wants_stream:
+        try:
+            payload_json = json.loads(payload or b"{}")
+        except Exception:
+            payload_json = {}
+        params = payload_json.get("params") or {}
+        tool_name = params.get("name")
+
+        def stream_text_response(rpc_id, base_result, key, text, chunk_size=200):
+            total = text or ""
+            offset = 0
+            while offset < len(total):
+                chunk = total[offset:offset + chunk_size]
+                offset += chunk_size
+                payload = {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "result": {**base_result, "partial": True, "delta": chunk},
+                }
+                yield f"event: message\ndata: {json.dumps(payload)}\n\n"
+            final_payload = {
+                "jsonrpc": "2.0",
+                "id": rpc_id,
+                "result": {**base_result, key: total, "partial": False},
+            }
+            yield f"event: message\ndata: {json.dumps(final_payload)}\n\n"
+
         def stream():
-            with httpx.stream("POST", target, headers=headers, content=payload, timeout=None) as resp:
-                for chunk in resp.iter_raw():
-                    yield chunk
+            data = None
+            resp = httpx.post(target, headers=headers, content=payload, timeout=None)
+            content_type = resp.headers.get("content-type", "")
+            if "text/event-stream" in content_type:
+                data = _extract_sse_json_from_bytes(resp.content)
+            else:
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = None
+
+            if not isinstance(data, dict):
+                error_payload = {
+                    "jsonrpc": "2.0",
+                    "id": payload_json.get("id"),
+                    "error": {"code": -32603, "message": "Invalid MCP response"},
+                }
+                yield f"event: message\ndata: {json.dumps(error_payload)}\n\n"
+                return
+
+            data = _normalize_tool_result(data)
+
+            if "error" in data:
+                yield f"event: message\ndata: {json.dumps(data)}\n\n"
+                return
+
+            result = data.get("result") or {}
+            if tool_name in {"agent.summarize_case", "agent.run_task"}:
+                key = "summary" if tool_name == "agent.summarize_case" else "result"
+                text = result.get(key, "")
+                base = dict(result)
+                base.pop(key, None)
+                base.pop("partial", None)
+                base.pop("delta", None)
+                yield from stream_text_response(data.get("id"), base, key, text)
+                return
+
+            yield f"event: message\ndata: {json.dumps(data)}\n\n"
 
         return Response(stream(), mimetype="text/event-stream")
 
     resp = httpx.post(target, headers=headers, content=payload, timeout=20.0)
+    content_type = resp.headers.get("content-type", "")
+    if "text/event-stream" in content_type:
+        data = _extract_sse_json_from_bytes(resp.content)
+        if data is None:
+            error_payload = {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32603, "message": "Empty MCP response"},
+            }
+            return Response(json.dumps(error_payload), status=200, content_type="application/json")
+        data = _normalize_tool_result(data)
+        return Response(json.dumps(data), status=200, content_type="application/json")
     return Response(resp.content, status=resp.status_code, content_type=resp.headers.get("content-type", "application/json"))

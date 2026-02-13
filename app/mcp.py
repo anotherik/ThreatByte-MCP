@@ -5,8 +5,16 @@ from flask import Blueprint, request, jsonify, current_app, Response
 
 from .db import get_db
 from .auth import get_current_user
+from .config import Config
 
 mcp_bp = Blueprint("mcp", __name__)
+
+
+def _get_upload_folder():
+    try:
+        return current_app.config["UPLOAD_FOLDER"]
+    except Exception:
+        return Config.UPLOAD_FOLDER
 
 
 def _json_response(payload, status=200):
@@ -474,7 +482,7 @@ def _tool_files_upload(db, user, args):
     if not case_id or not filename or not content_b64:
         return {"error": "case_id, filename, content_base64 are required"}
 
-    upload_folder = current_app.config["UPLOAD_FOLDER"]
+    upload_folder = _get_upload_folder()
     os.makedirs(upload_folder, exist_ok=True)
 
     stored_name = filename
@@ -518,7 +526,7 @@ def _tool_files_get(db, _user, args):
     ).fetchone()
     if not row:
         return {"error": "file not found"}
-    upload_folder = current_app.config["UPLOAD_FOLDER"]
+    upload_folder = _get_upload_folder()
     file_path = os.path.join(upload_folder, row["filename"])
     if not os.path.exists(file_path):
         return {"error": "file missing on disk"}
@@ -882,7 +890,7 @@ def _handle_rpc(payload):
 
     if method == "initialize":
         result = {
-            "protocolVersion": "2025-06-18",
+            "protocolVersion": "2025-11-25",
             "serverInfo": {"name": "ThreatByte-MCP", "version": "0.1"},
             "capabilities": {"tools": {"listChanged": False}},
         }
