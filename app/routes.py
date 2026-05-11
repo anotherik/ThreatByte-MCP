@@ -127,6 +127,21 @@ def dashboard():
     )
 
 
+@ui_bp.route("/my-cases")
+@login_required
+def my_cases():
+    user = get_current_user()
+    db = get_db()
+    rows = db.execute(
+        "SELECT c.id, c.title, c.severity, c.status, c.created_at, "
+        "  (SELECT COUNT(*) FROM notes n WHERE n.case_id = c.id) AS note_count, "
+        "  (SELECT COUNT(*) FROM files f WHERE f.case_id = c.id) AS file_count "
+        "FROM cases c WHERE c.owner_id = ? ORDER BY c.created_at DESC",
+        (user["id"],),
+    ).fetchall()
+    return render_template("my_cases.html", user=user, cases=rows)
+
+
 @ui_bp.route("/cases/<int:case_id>")
 @login_required
 def case_view(case_id):
@@ -198,6 +213,18 @@ def agent_logs():
         "FROM agent_logs ORDER BY id DESC LIMIT 50"
     ).fetchall()
     return render_template("agent_logs.html", user=user, logs=logs)
+
+
+@ui_bp.route("/mcp-audit-logs")
+@login_required
+def mcp_audit_logs():
+    user = get_current_user()
+    db = get_db()
+    logs = db.execute(
+        "SELECT id, user_id, tool_name, transport, args_json, result_json, created_at "
+        "FROM mcp_audit_logs ORDER BY id DESC LIMIT 100"
+    ).fetchall()
+    return render_template("mcp_audit_logs.html", user=user, logs=logs)
 
 
 @ui_bp.route("/mcp-docs")
