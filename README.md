@@ -48,35 +48,33 @@ Architecture (simplified):
 
 Architecture (detailed):
 ```
-Browser (Analyst)
-  |
-  v
-SOC Web App (Flask, :5001)
-  |  - Auth session (cookie)
-  |  - Dashboards, cases, notes, files UI
-  |  - /mcp-proxy forwards JSON-RPC
-  |
-  +--> SQLite DB
-  |     - users, cases, notes, files, indicators
-  |
-  +--> Uploads (app/uploads)
-  |
-  v
-MCP Server (FastMCP, :5002)
-  |  - /mcp JSON-RPC (Streamable HTTP)
-  |  - X-TBMCP-Token + X-TBMCP-User headers
-  |
-  +--> Tool registry (mcp_tools)
-  |     - schema-based tools (poisonable)
-  |
-  +--> Agent runtime
-  |     - prompt builder (hardcoded tokens)
-  |     - LLM API call
-  |
-  +--> Persistence
-        - agent_contexts (prompt store)
-        - agent_logs (full request/response)
+Mode A (Web UI as HTTP MCP client)
+  Browser (Analyst)
+    |
+    v
+  SOC Web App (Flask, :5001)
+    - Auth session (cookie)
+    - Dashboards, cases, notes, files UI
+    - POST /mcp-proxy forwards JSON-RPC
+    - Injects X-TBMCP-Token + X-TBMCP-User to the MCP server
+    |
+    +--> SQLite DB (users/cases/notes/files/indicators)
+    +--> Uploads (app/uploads)
+    |
+    v
+  MCP Server (FastMCP, :5002)
+    - /mcp JSON-RPC (Streamable HTTP)
+    - Tool registry (mcp_tools)
+    - Agent runtime + tool handlers
+    - Persistence: agent_contexts, agent_logs, mcp_audit_logs
+
+Mode B (Local agent/IDE as stdio MCP client)
+  Local Agent / IDE (e.g., Claude Desktop) spawns:
+    python run_mcp_server.py --stdio
+  and communicates via stdin/stdout JSON-RPC (stdio transport).
 ```
+
+Interactive diagram: [Claude Desktop setup](docs/architecture_diagram.html)
 
 ### MCP Auth Between Web App and MCP Server
 The web app proxies MCP calls with these headers:
@@ -128,12 +126,40 @@ python -m venv venv_threatbyte_mcp
 source venv_threatbyte_mcp/bin/activate
 pip install -r requirements.txt
 python db/create_db_tables.py
-python run_http_server.py
+python run_mcp_server.py --http
 python run.py
 ```
 Open: `http://localhost:5001`
 
 MCP Server: `http://localhost:5002/mcp`
+
+### HTTP vs stdio
+This repository ships two MCP server transports:
+- **HTTP (Streamable HTTP)**: what the ThreatByte web app uses. The web app is an **HTTP MCP client only**, via the server-side `/mcp-proxy` forwarder.
+- **stdio**: for external MCP clients (e.g., IDE/agent clients) that **spawn** the MCP server and communicate over stdin/stdout.
+
+Examples:
+```sh
+# HTTP (required for the web app)
+python run_mcp_server.py --http --host 127.0.0.1 --port 5002
+
+# stdio (for MCP clients that support stdio transport; the web app will NOT work with this)
+# In stdio mode there are no HTTP headers, so the server reads user context from env vars.
+# Note: stdio mode runs the MCP server on AnyIO's Trio backend; ensure `trio>=0.28.0` is installed.
+export TBMCP_MCP_SERVER_TOKEN=tbmcp-mcp-token
+export TBMCP_MCP_USER_ID=1
+python run_mcp_server.py --stdio
+```
+
+#### Claude Desktop compatibility (tool names)
+Some MCP clients (e.g., Claude Desktop) enforce strict tool name validation (`^[a-zA-Z0-9_-]{1,64}$`) and will reject dotted tool names like `cases.create`.
+
+To run the MCP server in a Claude-compatible mode, set:
+- `TBMCP_TOOL_NAME_MODE=claude`
+
+This exposes tools as underscore names (e.g., `cases_create`, `tools_registry_register`, `files_read_path`) instead of dotted names.
+
+For a complete walkthrough (Windows + WSL stdio), see [Claude Desktop setup](docs/claude-desktop.md).
 
 ## Running with Docker or Podman
 The repository includes a `Dockerfile` and startup script that initialize the DB and run both services in one container:
@@ -215,4 +241,8 @@ Environment variables:
 ## Notes
 - The UI uses server-rendered templates.
 - MCP tools are exposed under `http://localhost:5002/mcp` (JSON-RPC). The UI calls them through `/mcp-proxy`.
+- Useful UI pages for training:
+  - `My Cases` (all cases owned by the logged-in user)
+  - `MCP Audit Logs` (server-side audit trail of MCP tool calls from HTTP + stdio clients)
+  - `Agent Logs` (internal agent runner traces; populated by `agent.run_task`)
 - This app is intentionally insecure. Do not deploy it to the public internet.
