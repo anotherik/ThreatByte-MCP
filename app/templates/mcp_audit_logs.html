@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>MCP Audit Logs (Training)</h2>
+<p class="muted">Shows a server-side audit trail of MCP tool calls from both HTTP and stdio clients (including external clients like Claude Desktop).</p>
+
+<section class="card">
+    <h3>Tool Call Audit Trail</h3>
+    {% if logs %}
+    <ul class="list audit-list">
+        {% for log in logs %}
+        <li>
+            <div class="audit-head">
+                <strong>Audit #{{ log.id }}</strong>
+                <span class="pill pill-muted">User {{ log.user_id }}</span>
+                <span class="pill pill-transport">{{ log.transport }}</span>
+                <strong>{{ log.tool_name }}</strong>
+                <span class="audit-meta">{{ log.created_at }}</span>
+            </div>
+            <div class="muted">Args</div>
+            <pre class="summary compact">{{ log.args_json }}</pre>
+            <div class="muted">Result</div>
+            <pre class="summary compact">{{ log.result_json }}</pre>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">No audit logs yet. Invoke any MCP tool (via web app or an external MCP client) to generate entries.</p>
+    {% endif %}
+</section>
+{% endblock %}
