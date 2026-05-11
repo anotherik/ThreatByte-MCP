@@ -154,6 +154,42 @@ input, textarea, select {
     font-size: 0.8rem;
 }
 
+.pill-muted {
+    background: rgba(148, 163, 184, 0.15);
+    color: rgba(148, 163, 184, 0.95);
+}
+
+.pill-transport {
+    background: rgba(34, 211, 238, 0.15);
+    color: rgba(34, 211, 238, 0.95);
+}
+
+.audit-list li {
+    display: block;
+    padding: 14px 0;
+}
+
+.audit-head {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 8px;
+}
+
+.audit-meta {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.summary.compact {
+    min-height: unset;
+    max-height: 220px;
+    overflow: auto;
+}
+
 .muted {
     color: var(--muted);
     font-size: 0.85rem;
