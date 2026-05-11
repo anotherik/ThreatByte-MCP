@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 880" role="img" aria-label="ThreatByte-MCP architecture diagram">
+        <defs>
+          <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0f1a33"/>
+            <stop offset="1" stop-color="#0b1220"/>
+          </linearGradient>
+          <style>
+            .box { fill: #101a2f; stroke: #223158; stroke-width: 2; rx: 16; }
+            .title { fill: #e8eefc; font: 600 16px ui-sans-serif, system-ui; }
+            .text { fill: #a9b6d3; font: 13px ui-sans-serif, system-ui; }
+            .mono { font: 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; fill:#cfe0ff;}
+            .laneTitle { fill:#e8eefc; font: 700 14px ui-sans-serif, system-ui; opacity:.9; }
+            .lane { fill: rgba(0,0,0,.18); stroke:#223158; stroke-width: 1.5; rx: 18; }
+            .arrow { stroke: #69b1ff; stroke-width: 2.5; fill: none; marker-end: url(#arrowHead); }
+            .arrowDash { stroke: #69b1ff; stroke-width: 2.5; fill: none; marker-end: url(#arrowHead); stroke-dasharray: 7 6; opacity:.9;}
+            .dataArrow { stroke: #36cfc9; stroke-width: 2.5; fill: none; marker-end: url(#arrowHeadData); }
+            .authTag { fill:#fadb14; opacity:.16; stroke:#fadb14; stroke-width:1.5; rx: 10; }
+            .authText { fill:#fadb14; font: 600 12px ui-monospace, SFMono-Regular; }
+            .netArrow { stroke:#ff4d4f; stroke-width: 3; fill:none; marker-end:url(#arrowHeadBad); stroke-linecap: round; stroke-linejoin: round; opacity: .95; }
+            .label { fill:#a9b6d3; font: 12px ui-sans-serif, system-ui; }
+          </style>
+          <marker id="arrowHead" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto">
+            <path d="M0,0 L10,4 L0,8 z" fill="#69b1ff"></path>
+          </marker>
+          <marker id="arrowHeadData" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto">
+            <path d="M0,0 L10,4 L0,8 z" fill="#36cfc9"></path>
+          </marker>
+          <marker id="arrowHeadBad" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M0,0 L12,5 L0,10 z" fill="#ff4d4f"></path>
+          </marker>
+        </defs>
+
+        <rect x="0" y="0" width="1400" height="880" fill="url(#bg)" rx="22"></rect>
+
+        <!-- Lanes -->
+        <rect class="lane" x="40" y="60" width="1320" height="370"></rect>
+        <text class="laneTitle" x="60" y="92">Mode A — Web App as HTTP MCP Client (browser → Flask → MCP HTTP server)</text>
+
+        <rect class="lane" x="40" y="460" width="1320" height="380"></rect>
+        <text class="laneTitle" x="60" y="492">Mode B — Local Agent/IDE as stdio MCP Client (client spawns server subprocess)</text>
+
+        <!-- Mode A boxes -->
+        <rect class="box" x="80" y="120" width="250" height="120"></rect>
+        <text class="title" x="100" y="150">SOC Analyst</text>
+        <text class="text" x="100" y="175">Browser UI</text>
+        <text class="mono" x="100" y="200">http://127.0.0.1:5001</text>
+
+        <rect class="box" x="410" y="110" width="320" height="180"></rect>
+        <text class="title" x="430" y="140">SOC Web App</text>
+        <text class="text" x="430" y="165">Flask (UI + session auth)</text>
+        <text class="mono" x="430" y="190">POST /mcp-proxy</text>
+        <text class="text" x="430" y="215">Forwards JSON-RPC to MCP server</text>
+        <rect class="authTag" x="430" y="230" width="280" height="38"></rect>
+        <text class="authText" x="442" y="255">Injects X-TBMCP-Token + X-TBMCP-User</text>
+
+        <rect class="box" x="815" y="110" width="330" height="200"></rect>
+        <text class="title" x="835" y="140">MCP Server</text>
+        <text class="text" x="835" y="165">FastMCP (Streamable HTTP)</text>
+        <text class="mono" x="835" y="190">http://127.0.0.1:5002/mcp</text>
+        <text class="text" x="835" y="215">JSON-RPC: initialize, tools/list, tools/call</text>
+        <text class="text" x="835" y="240">SSE streaming for agent outputs</text>
+        <text class="text" x="835" y="265">Tools: cases/notes/files/registry/agent</text>
+
+        <rect class="box" x="1180" y="135" width="170" height="110"></rect>
+        <text class="title" x="1200" y="165">SQLite DB</text>
+        <text class="text" x="1200" y="190">cases/notes/files</text>
+        <text class="text" x="1200" y="212">agent_logs/tools</text>
+
+        <rect class="box" x="1180" y="265" width="170" height="90"></rect>
+        <text class="title" x="1200" y="295">Uploads</text>
+        <text class="text" x="1200" y="320">app/uploads</text>
+
+        <!-- Mode A: keep LLM box fully inside the lane and away from the Uploads box -->
+        <rect class="box" x="815" y="345" width="330" height="75"></rect>
+        <text class="title" x="835" y="372">External LLM (optional)</text>
+        <text class="text" x="835" y="397">OpenAI API (agent tools)</text>
+
+        <!-- Mode A arrows -->
+        <path class="arrow" d="M330 180 C360 180, 370 180, 410 180"></path>
+        <text class="label" x="345" y="168">HTTP</text>
+
+        <path class="arrow" d="M730 180 C770 180, 780 180, 815 180"></path>
+        <text class="label" x="740" y="168">JSON-RPC</text>
+
+        <path class="arrowDash" d="M815 245 C780 245, 770 245, 730 245"></path>
+        <text class="label" x="740" y="235">SSE stream back</text>
+
+        <path class="dataArrow" d="M1145 190 C1160 190, 1168 190, 1180 190"></path>
+        <text class="label" x="1110" y="180">queries/writes</text>
+
+        <path class="dataArrow" d="M1145 305 C1160 305, 1168 305, 1180 305"></path>
+        <text class="label" x="1078" y="295">file read/write</text>
+
+        <!-- MCP Server -> External LLM (Mode A) -->
+        <path class="netArrow" d="M980 310 L980 345"></path>
+        <text class="label" x="1002" y="338">agent.* → network call</text>
+
+        <!-- Mode B boxes -->
+        <rect class="box" x="80" y="525" width="280" height="140"></rect>
+        <text class="title" x="100" y="555">Local Agent / IDE</text>
+        <text class="text" x="100" y="580">MCP Client (stdio transport)</text>
+        <text class="mono" x="100" y="605">spawns: python run_mcp_server.py --stdio</text>
+        <text class="text" x="100" y="630">Reads/writes MCP over pipes</text>
+
+        <rect class="box" x="430" y="520" width="350" height="180"></rect>
+        <text class="title" x="450" y="550">MCP Server (stdio)</text>
+        <text class="text" x="450" y="575">FastMCP server process</text>
+        <text class="mono" x="450" y="600">stdin/stdout JSON-RPC</text>
+        <text class="text" x="450" y="625">initialize, tools/list, tools/call</text>
+        <text class="text" x="450" y="650">Auth via env (no headers): TBMCP_MCP_*</text>
+        <text class="text" x="450" y="675">Optional: TBMCP_TOOL_NAME_MODE=claude</text>
+
+        <rect class="box" x="840" y="540" width="250" height="110"></rect>
+        <text class="title" x="860" y="570">SQLite DB</text>
+        <text class="text" x="860" y="595">Same storage</text>
+        <text class="text" x="860" y="620">cases/notes/files</text>
+
+        <rect class="box" x="1120" y="540" width="250" height="110"></rect>
+        <text class="title" x="1140" y="570">Uploads</text>
+        <text class="text" x="1140" y="595">Same filesystem</text>
+        <text class="text" x="1140" y="620">app/uploads</text>
+
+        <rect class="box" x="840" y="690" width="530" height="120"></rect>
+        <text class="title" x="860" y="720">External LLM (optional)</text>
+        <text class="text" x="860" y="745">Agent tools can call OpenAI API</text>
+        <text class="text" x="860" y="770">Context/tool outputs may be persisted</text>
+
+        <!-- Mode B arrows -->
+        <path class="arrow" d="M360 595 C390 595, 400 595, 430 595"></path>
+        <text class="label" x="370" y="582">stdio JSON-RPC</text>
+
+        <path class="dataArrow" d="M780 600 C805 600, 815 600, 840 600"></path>
+        <text class="label" x="792" y="588">DB I/O</text>
+
+        <path class="dataArrow" d="M780 640 C930 640, 975 640, 1120 595"></path>
+        <text class="label" x="910" y="628">file I/O</text>
+
+        <!-- MCP Server (stdio) -> External LLM (Mode B): horizontal into the LLM box edge -->
+        <path class="netArrow" d="M780 720 L840 720"></path>
+        <text class="label" x="792" y="708">agent.* → network call</text>
+
+        <!-- Interaction callouts (kept within Mode A lane and clear of the LLM box) -->
+        <text class="label" x="430" y="312">Common interactions in both modes:</text>
+        <text class="mono" x="430" y="336">initialize → tools/list → tools/call (cases.*, notes.*, files.*, indicators.*, tools.registry.*, agent.*)</text>
+      </svg>
