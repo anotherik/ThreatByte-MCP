@@ -3,7 +3,7 @@ set -euo pipefail
 
 python db/create_db_tables.py
 
-uvicorn run_mcp_server:app --host 0.0.0.0 --port 5002 &
+uvicorn mcp_server.sdk_app:app --host 0.0.0.0 --port 5002 &
 MCP_PID=$!
 
 flask --app run.py run --host 0.0.0.0 --port 5001 --no-reload &
