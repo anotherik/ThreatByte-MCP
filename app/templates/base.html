@@ -12,9 +12,11 @@
         <nav class="nav">
             {% if user %}
             <a href="{{ url_for('ui.dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('ui.my_cases') }}">My Cases</a>
             <a href="{{ url_for('ui.indicators') }}">Indicators</a>
             <a href="{{ url_for('ui.mcp_docs') }}">MCP Docs</a>
             <a href="{{ url_for('ui.agent_logs') }}">Agent Logs</a>
+            <a href="{{ url_for('ui.mcp_audit_logs') }}">MCP Audit Logs</a>
             <a href="{{ url_for('ui.agent_tools') }}">Agent Customization</a>
             <a href="{{ url_for('ui.profile') }}">Profile</a>
             <a href="{{ url_for('ui.logout') }}">Logout</a>
