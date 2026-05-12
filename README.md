@@ -74,7 +74,7 @@ Mode B (Local agent/IDE as stdio MCP client)
   and communicates via stdin/stdout JSON-RPC (stdio transport).
 ```
 
-Interactive diagram: [Claude Desktop setup](docs/architecture-diagram.svg)
+Diagram: [ThreatByte-MCP architecture diagram](docs/architecture-diagram.svg)
 
 ### MCP Auth Between Web App and MCP Server
 The web app proxies MCP calls with these headers:
